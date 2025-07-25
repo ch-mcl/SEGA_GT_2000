@@ -1,0 +1,63 @@
+//------------------------------------------------
+//--- 010 Editor v15.0.1 Binary Template
+//
+//      File: 
+//   Authors: 
+//   Version: 
+//   Purpose: 
+//  Category: 
+// File Mask: 
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+typedef struct {
+    float x;
+    float y;
+    float z;
+} Vector;
+
+typedef struct {
+    byte unk0x00[4];
+    
+    int unk0x04; // material Color?
+    int unk0x08; // material Color?
+    
+} Model;
+
+typedef struct (int flag) {
+    Vector pos;
+    if ((flag & 0xFF) == 0x29) {
+        Vector normal;
+    }
+} Vertex;
+
+typedef struct {
+    int unk0x00; // flag?
+    // 0x22: float[3], 0x29:float[6] ?
+    short unk0x04;
+    short count;
+    Vertex vertexs(unk0x00)[count];
+} VertexList;
+
+typedef struct {
+    int padding;
+    Vector unk0x4[12];
+    local int ptrEndAdr = ReadUInt(FTell());
+    local int ptrCount = (ptrEndAdr - 0x94) / 8;
+    int modelPtr[ptrCount];
+    int vertexListPtr[ptrCount];
+} Header;
+
+// Main
+LittleEndian();
+struct CarModel {
+    Header header;
+    local int ptrCount = (header.ptrEndAdr - 0x94) / 8;
+    local int i = 0;
+    for (i = 0; i < ptrCount; i++) {
+        FSeek(header.modelPtr[i]);
+        Model models;
+        FSeek(header.vertexListPtr[i]);
+        VertexList vertexList;
+    }
+} carModel;
