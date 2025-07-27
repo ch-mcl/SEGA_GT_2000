@@ -77,6 +77,137 @@ namespace SegaGT_ArchiveTool
 
         }
 
+
+
+        private string DetectExtension(byte[] bytes)
+        {
+            if (bytes.Length > 2 && bytes[0] == 'N' && bytes[1] == 'J')
+            {
+                // NJ file
+                return "nj";
+            }
+            else if (bytes.Length > 4 && bytes[0] == 'G' && bytes[1] == 'B' && bytes[2] == 'I' && bytes[3] == 'X')
+            {
+                return "pvr";
+            }
+
+            return "bin";
+
+        }
+
+        private void UnpackMultiFile(int idx, string destDirectoryPathBase, Entry entry, FileStream arcFileStream)
+        {
+            string destDirectoryPath = $@"{destDirectoryPathBase}\{string.Format("{0:D8}", idx)}";
+            Directory.CreateDirectory(destDirectoryPath);
+            byte[] bytes = new byte[4];
+            arcFileStream.Seek(entry.offset, SeekOrigin.Begin);
+
+            arcFileStream.Read(bytes, 0x00, 4);
+            uint count = BitConverter.ToUInt32(bytes, 0);
+            List<int> adrList = new List<int>();
+            for (int i = 0; i < count; i++)
+            {
+                arcFileStream.Read(bytes, 0x00, 4);
+                int adr = BitConverter.ToInt32(bytes, 0);
+                adrList.Add(adr);
+            }
+
+            foreach (int adr in adrList)
+            {
+                if(adr > entry.size)
+                {
+                    // force change to single file
+                    UnpackSingleFile(idx, destDirectoryPathBase, entry, arcFileStream);
+                    Directory.Delete(destDirectoryPath, true);
+                    return;
+                }
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                int nextAdr = i < count - 1 ? adrList[i + 1] : entry.size;
+                int size = nextAdr - adrList[i];
+                byte[] destBytes = new byte[size];
+                arcFileStream.Read(destBytes, 0x00, size);
+                string extension = DetectExtension(destBytes);
+                string destFileName = string.Format("{0:D8}.{1}", i, extension);
+                string fullpath = $@"{destDirectoryPath}\{destFileName}";
+                using (FileStream destFileStream = new FileStream(fullpath, FileMode.Create, FileAccess.Write))
+                {
+                    destFileStream.Write(destBytes, 0x00, size);
+                }
+            }
+
+            return;
+        }
+
+        private void UnpackSingleFile(int idx, string destDirectoryPath, Entry entry, FileStream arcFileStream)
+        {
+            byte[] destBytes = new byte[entry.size];
+            arcFileStream.Seek(entry.offset, SeekOrigin.Begin);
+            arcFileStream.Read(destBytes, 0x00, entry.size);
+
+            string extension = DetectExtension(destBytes);
+
+            string destFileName = string.Format("{0:D8}.{1}", idx, extension);
+            string fullpath = $@"{destDirectoryPath}\{destFileName}";
+            using (FileStream destFileStream = new FileStream(fullpath, FileMode.Create, FileAccess.Write))
+            {
+                destFileStream.Write(destBytes, 0x00, entry.size);
+            }
+
+            return;
+        }
+
+        private int Unpack(int idx, BackgroundWorker bgWorker, string filePath, string fileDirectory, List<TOC_Entry> entrys, UserStateProgressChanged argsProgressChanged, int progress)
+        {
+            string targetArcName = $"STR{idx}";
+            string destDirectoryPath = $@"{fileDirectory}\extract\{targetArcName}";
+            Directory.CreateDirectory(destDirectoryPath);
+            int fileCount = entrys[idx].count;
+
+            // EXE file of SsegGT
+            using (FileStream exeFileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+            // STRn(n=0~3) file
+            using (FileStream arcFileStream = new FileStream($@"{fileDirectory}\{targetArcName}.BIN", FileMode.Open, FileAccess.Read))
+            {
+                exeFileStream.Seek(entrys[idx].adr, SeekOrigin.Begin);
+                for (int i = 0; i < fileCount; i++)
+                {
+                    Entry entry = new Entry();
+                    entry.Unpack(exeFileStream);
+                    if (i > 0 && entry.offset < 1)
+                    {
+                        exeFileStream.Seek(-8, SeekOrigin.Current);
+                        break;
+                    }
+
+                    byte[] bytes = new byte[4];
+                    arcFileStream.Seek(entry.offset, SeekOrigin.Begin);
+                    arcFileStream.Read(bytes, 0x00, 4);
+                    int first4Byte = BitConverter.ToInt32(bytes, 0);
+
+                    if (first4Byte > 0x00 && first4Byte < 0xFFFF)
+                    {
+                        // container
+                        UnpackMultiFile(i, destDirectoryPath, entry, arcFileStream);
+                    }
+                    else
+                    {
+                        // file
+                        UnpackSingleFile(i, destDirectoryPath, entry, arcFileStream);
+                    }
+
+                    progress++;
+                    bgWorker.ReportProgress(progress, argsProgressChanged); // update progress var
+                }
+
+
+            }
+
+            return progress;
+        }
+
         // Unpack
         private void bgWorkerUnpack_DoWork(object sender, DoWorkEventArgs e)
         {
@@ -111,60 +242,6 @@ namespace SegaGT_ArchiveTool
 
 
 
-        }
-
-        private static int Unpack(int idx, BackgroundWorker bgWorker, string filePath, string fileDirectory, List<TOC_Entry> entrys, UserStateProgressChanged argsProgressChanged, int progress)
-        {
-            // EXE file of SsegGT
-            using (FileStream exeFileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read))
-            {
-                // STRn(n=0~3) file
-                string targetArcName = $"STR{idx}";
-                string destDirectoryPath = $@"{fileDirectory}\extract\{targetArcName}";
-                Directory.CreateDirectory(destDirectoryPath);
-                int fileCount = entrys[idx].count;
-                exeFileStream.Seek(entrys[idx].adr, SeekOrigin.Begin);
-                using (FileStream arcFileStream = new FileStream($@"{fileDirectory}\{targetArcName}.BIN", FileMode.Open, FileAccess.Read))
-                {
-                    for (int i = 0; i < fileCount; i++)
-                    {
-                        Entry entry = new Entry();
-                        entry.Unpack(exeFileStream);
-                        if (i > 0 && entry.offset < 1)
-                        {
-                            exeFileStream.Seek(-8, SeekOrigin.Current);
-                            break;
-                        }
-
-                        byte[] destBytes = new byte[entry.size];
-                        arcFileStream.Seek(entry.offset, SeekOrigin.Begin);
-                        arcFileStream.Read(destBytes, 0x00, entry.size);
-
-                        string extension = "bin";
-                        if (destBytes.Length > 2 && destBytes[0] == 0x4E && destBytes[1] == 0x4A)
-                        {
-                            // NJ file
-                            extension = "nj";
-                        } else if (destBytes.Length > 4 && destBytes[0] == 0x47 && destBytes[1] == 0x42 && destBytes[2] == 0x49 && destBytes[3] == 0x58){
-                            extension = "pvr";
-                        }
-
-                        string destFileName = string.Format("{0:D8}.{1}", i, extension);
-                        string fullpath = $@"{destDirectoryPath}\{destFileName}";
-                        using (FileStream destFileStream = new FileStream(fullpath, FileMode.Create, FileAccess.Write))
-                        {
-                            destFileStream.Write(destBytes, 0x00, entry.size);
-                        }
-
-                        progress++;
-                        bgWorker.ReportProgress(progress, argsProgressChanged); // update progress var
-                    }
-
-                }
-
-            }
-
-            return progress;
         }
 
         // Unpackに関する表示の更新。
