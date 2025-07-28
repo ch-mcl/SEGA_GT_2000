@@ -1,0 +1,25 @@
+//------------------------------------------------
+//--- 010 Editor v15.0.1 Binary Template
+//
+//      File: 
+//   Authors: 
+//   Version: 
+//   Purpose: 
+//  Category: 
+// File Mask: 
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+#include "SegaGT_Model.bt"
+
+typedef struct {
+    Element element;
+    
+} Unk1;
+
+// Main
+LittleEndian();
+FSeek(0x1C20);
+struct TrackModel {
+    Unk1 unk1;
+} trackModel;

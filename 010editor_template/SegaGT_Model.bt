@@ -1,0 +1,100 @@
+//------------------------------------------------
+//--- 010 Editor v15.0.1 Binary Template
+//
+//      File: 
+//   Authors: 
+//   Version: 
+//   Purpose: 
+//  Category: 
+// File Mask: 
+//  ID Bytes: 
+//   History: 
+//------------------------------------------------
+typedef struct {
+    float x;
+    float y;
+    float z;
+} Vector;
+
+typedef struct {
+    short unk0x04;
+    short count;
+    short unk0x08[count];
+} Type0x08;
+
+typedef struct {
+    byte color0[4];
+} Type0x11;
+
+typedef struct {
+    byte color0[4];
+    byte color1[4];
+} Type0x13;
+
+
+typedef struct (byte flag) {
+    Vector pos;
+    if ((flag & 0xFF) == 0x29) {
+        Vector normal;
+    } else if ((flag & 0xFF) == 0x23) {
+        short unk_short[2];
+    }
+} Vertex;
+
+typedef struct (byte flag) {
+    short unk0x04;
+    short count;
+    Vertex vertexs(flag)[count];
+} VertexList;
+
+typedef struct {
+    byte unk0x00[4];
+
+    switch(unk0x00[0]){
+        case 0x08:
+            Type0x08 type0x08;
+            break;
+        case 0x11:
+            Type0x11 type0x11;
+            break;
+        case 0x13:
+            Type0x13 type0x13;
+            break;
+        case 0x22:
+        case 0x23:
+        case 0x29:
+            VertexList vertexs(unk0x00[0]);
+            break;
+        case 0xFF:
+            // End of Data
+            break;
+    }    
+} Element;
+
+
+typedef struct {
+    byte unk0x00[4];
+    int unk0x04; // material Color?
+    int unk0x08; // material Color?
+} Model;
+
+
+
+
+// for Car Model (Maybe later remove)
+typedef struct (int flag) {
+    Vector pos;
+    if ((flag & 0xFF) == 0x29) {
+        Vector normal;
+    } else if ((flag & 0xFF) == 0x23) {
+        short unk_short[2];
+    }
+} _Vertex;
+
+typedef struct {
+    int unk0x00; // flag?
+    // 0x22: float[3], 0x29:float[6] ?
+    short unk0x04;
+    short count;
+    _Vertex vertexs(unk0x00)[count];
+} _VertexList;

@@ -10,34 +10,7 @@
 //  ID Bytes: 
 //   History: 
 //------------------------------------------------
-typedef struct {
-    float x;
-    float y;
-    float z;
-} Vector;
-
-typedef struct {
-    byte unk0x00[4];
-    
-    int unk0x04; // material Color?
-    int unk0x08; // material Color?
-    
-} Model;
-
-typedef struct (int flag) {
-    Vector pos;
-    if ((flag & 0xFF) == 0x29) {
-        Vector normal;
-    }
-} Vertex;
-
-typedef struct {
-    int unk0x00; // flag?
-    // 0x22: float[3], 0x29:float[6] ?
-    short unk0x04;
-    short count;
-    Vertex vertexs(unk0x00)[count];
-} VertexList;
+#include "SegaGT_Model.bt"
 
 typedef struct {
     int padding;
@@ -58,6 +31,6 @@ struct CarModel {
         FSeek(header.modelPtr[i]);
         Model models;
         FSeek(header.vertexListPtr[i]);
-        VertexList vertexList;
+        _VertexList vertexList;
     }
 } carModel;
