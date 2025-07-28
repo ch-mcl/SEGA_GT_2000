@@ -28,9 +28,11 @@ struct CarModel {
     local int ptrCount = (header.ptrEndAdr - 0x94) / 8;
     local int i = 0;
     for (i = 0; i < ptrCount; i++) {
-        FSeek(header.modelPtr[i]);
-        Model models;
-        FSeek(header.vertexListPtr[i]);
-        _VertexList vertexList;
+        struct ModelCar {
+            FSeek(header.modelPtr[i]);
+            _Model models;
+            FSeek(header.vertexListPtr[i]);
+            Mesh mesh;
+        } model;
     }
 } carModel;

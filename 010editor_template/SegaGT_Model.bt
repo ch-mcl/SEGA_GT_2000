@@ -71,15 +71,37 @@ typedef struct {
     }    
 } Element;
 
+typedef struct {
+    while(true) {
+        Element element;
+        if (element.unk0x00[0] == 0xFFFFFFFF) {
+            break;
+        }
+    }
+} Unk1;
+
+typedef struct {
+    while(true) {
+        Element element;
+        if (element.unk0x00[0] == 0xFFFFFFFF) {
+            break;
+        }
+    }
+} Mesh;
+
+typedef struct {
+    Unk1 unk1;
+    Mesh mesh;
+} Model;
+
+
+// 
 
 typedef struct {
     byte unk0x00[4];
     int unk0x04; // material Color?
     int unk0x08; // material Color?
-} Model;
-
-
-
+} _Model;
 
 // for Car Model (Maybe later remove)
 typedef struct (int flag) {
