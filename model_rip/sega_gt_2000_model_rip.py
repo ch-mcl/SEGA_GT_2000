@@ -20,11 +20,11 @@ class Tiny:
         self.clamp_u = False
         self.clamp_v = False
         self.mipmap_adjust = 0x00
-        slef.filter_mode = 0x00
+        self.filter_mode = 0x00
         self.super_sample = 0x00
         self.TexId = 0x00
 
-    def unpakc(self, file: typing.IO) -> None:
+    def unpack(self, file: typing.IO) -> None:
         bytes = file.read(struct.calcsize(self.fmt))
         buff = struct.unpack_from(self.fmt, bytes, 0)
         # TDOO Store
@@ -38,14 +38,14 @@ class Material:
         self.size = 0x00
 
     fmt = '<1B'
-    def unpakc(self, file: typing.IO) -> bool:
+    def unpack(self, file: typing.IO) -> bool:
         bytes = file.read(struct.calcsize(self.fmt))
         buff = struct.unpack_from(self.fmt, bytes, 0)
         # TDOO Store
         skip = 0x00
-        if ((buff[1]&0xF) == 1):
+        if ((buff[0]&0xF) == 1):
             skip = 7
-        elif ((buff[1]&0xF) == 3):
+        elif ((buff[0]&0xF) == 3):
             skip = 11
         else:
             return True
@@ -53,44 +53,49 @@ class Material:
         return False
 
 
-class VertexElemnt:
+class VertexElement:
     fmt = [ # optimize for SH4
-            '>4f',     #00: x,y,z,1.0F, ...              correct?
-            '>8f',     #01: x,y,z,1.0F,nx,ny,nz,0.0F,... correct?
+            '<4f',     #00: x,y,z,1.0F, ...              correct?
+            '<8f',     #01: x,y,z,1.0F,nx,ny,nz,0.0F,... correct?
 
-            '>3f',     #02: x,y,z, ...
-            '>3f1H',   #03: x,y,z,D8888,...
-            '>3f1I',   #04: x,y,z,UserFlags32, ...
-            '>3f1I',   #05: x,y,z,NinjaFlags32,...
-            '>3f2H',   #06: x,y,z,D565|S565,...
-            '>3f2H',   #07: x,y,z,D4444|S565,...
-            '>3f2H',   #08: x,y,z,D16|S16,...
+            '<3f',     #02: x,y,z, ...
+            '<3f1I',   #03: x,y,z,D8888,...
+            '<3f1I',   #04: x,y,z,UserFlags32, ...
+            '<3f1I',   #05: x,y,z,NinjaFlags32,...
+            '<3f2H',   #06: x,y,z,D565|S565,...
+            '<3f2H',   #07: x,y,z,D4444|S565,...
+            '<3f2H',   #08: x,y,z,D16|S16,...
             # float vertex normal
-            '>6f',     #09: x,y,z,nx,ny,nz, ...
-            '>6f1H',   #10: x,y,z,nx,ny,nz,D8888,...
-            '>6f1I',   #11: x,y,z,nx,ny,nz,UserFlags32,...
-            '>6f1I',   #12: x,y,z,nx,ny,nz,NinjaFlags32,...
-            '>6f2H',   #13: x,y,z,nx,ny,nz,D565|S565,...
-            '>6f2H',   #14: x,y,z,nx,ny,nz,D4444|S565,...
-            '>6f2H',   #15: x,y,z,nx,ny,nz,D16|S16,...
+            '<6f',     #09: x,y,z,nx,ny,nz, ...
+            '<6f1I',   #10: x,y,z,nx,ny,nz,D8888,...
+            '<6f1I',   #11: x,y,z,nx,ny,nz,UserFlags32,...
+            '<6f1I',   #12: x,y,z,nx,ny,nz,NinjaFlags32,...
+            '<6f2H',   #13: x,y,z,nx,ny,nz,D565|S565,...
+            '<6f2H',   #14: x,y,z,nx,ny,nz,D4444|S565,...
+            '<6f2H',   #15: x,y,z,nx,ny,nz,D16|S16,...
             # 32bits vertex normal  reserved(2)|x(10)|y(10)|z(10)
-            '>3f1I',   #16: x,y,z,nxyz32, ...
-            '>3f2I',   #17: x,y,z,nxyz32,D8888,...
-            '>3f2I'    #18: x,y,z,nxyz32,UserFlags32,...
+            '<3f1I',   #16: x,y,z,nxyz32, ...
+            '<3f2I',   #17: x,y,z,nxyz32,D8888,...
+            '<3f2I'    #18: x,y,z,nxyz32,UserFlags32,...
           ]
     def __init__(self):
-        self.pos = [0.0, 0.0, 0.0]
+        self.position = [0.0, 0.0, 0.0]
         self.normal = [0.0, 0.0, 0.0]
         self.user_flag = 0x00
         self.ninja_flag = 0x00
         self.diffuse_color = [0.0, 0.0, 0.0, 0.0]
         self.specular_color = [0.0, 0.0, 0.0, 0.0]
 
-    def unpack(self, file: typing.IO, vtx_type: int) -> None:
+    def unpack(self, file: typing.IO, vtx_type: int) -> bool:
+        print('Vertex Type:{0:#0X} Vertex Adr: {1:#010X}'.format(vtx_type, file.tell()))
+        if (vtx_type > 18):
+            return True
         _fmt = self.fmt[vtx_type]
         bytes = file.read(struct.calcsize(_fmt))
         buff = struct.unpack_from(_fmt, bytes, 0)
-        self.pos = [buff[0], buff[1], buff[2]]
+        self.position = [buff[0], buff[1], buff[2]]
+        print(self.position[0])
+        return False
         
 # Chunk Vertex
 class Vertex:
@@ -100,24 +105,30 @@ class Vertex:
         self.chunk_head = 0x00
         self.size = 0x00 # needs "(this_value - 1) * 4" to byte size
         self.user_offset = 0x00
-        self.elments = []
+        self.elements = []
 
 
-    def unpack(self, file: typing.IO) -> None:
+    def unpack(self, file: typing.IO) -> bool:
         bytes = file.read(struct.calcsize(self.fmt))
         buff = struct.unpack_from(self.fmt, bytes, 0)
-        self.chunk_head = buf[0]
-        #self.head_bits = buf[1] #?
-        self.size = buf[2]
-        self.user_offset = buf[3]
-        end_adr = file.tell()
-        vtx_type = buf[0]-0x20
-        for i in range(buf[4]):
+        self.chunk_head = buff[0]
+        #self.head_bits = buff[1] #?
+        self.size = buff[2]
+        self.user_offset = buff[3]
+        end_adr = file.tell() + (self.size-1) * 4
+        vtx_type = buff[0]-0x20
+        count_vertex = buff[4]
+        #print('value: "count_vertex" {0:#X}'.format(count_vertex))
+        #print('value: "end_adr" {0:#X}'.format(end_adr))
+        for i in range(count_vertex):
             if (file.tell() > end_adr):
-                break
+                return True
             vtx = VertexElement()
             vtx.unpack(file, vtx_type)
             self.elements.append(vtx)
+        if( file.tell() < end_adr):
+            return True
+        return False
         
 
 # Chunk Volume (0x38 - 0x3A)
@@ -160,7 +171,7 @@ class Strip:
         self.count_strip = 0x00 # nbStrip
         self.elments = []
 
-    def unpakc(self, file: typing.IO) -> None:
+    def unpack(self, file: typing.IO) -> None:
         bytes = file.read(struct.calcsize(self.fmt))
         buff = struct.unpack_from(self.fmt, bytes, 0)
         # TDOO Store
@@ -168,7 +179,7 @@ class Strip:
         #elment = StripElemnt()
         size = buff[2]
         self.size = size
-        skip = size * 2
+        skip = (size-1) * 2
         file.seek(skip, io.SEEK_CUR)
 
 
@@ -181,7 +192,7 @@ class Mesh:
         self.strips = []
 
     # Chunk Head ... means "Sort of Commands".
-    def detect_head(self, file: typing.IO) -> bytes:
+    def detect_head(self, file: typing.IO) -> int:
         bytes = file.read(struct.calcsize('B'))
         buff = struct.unpack_from('B', bytes, 0)
         file.seek(-1, io.SEEK_CUR) # Go Back Head Parse
@@ -191,17 +202,20 @@ class Mesh:
         i = 0
         while(True):
             if (i > max_chunk_count):
+                # Force Terminate parsing
                 return True
             chunk_head = self.detect_head(file)
-            if (chunk_head == 0xFF):
+            print('Chunk Head: {0:#010X} Chunk Adr: {1:#010X}'.format(file.tell(), chunk_head))
+            if ((chunk_head&0xFF) == 0xFF):
+                # End of Chunk (means parsing is correct)
                 file.seek(4, io.SEEK_CUR)
-                break
-            elif ((chunk_head&0xF0) == 0x08):
+                return False
+            elif ((chunk_head&0x0F) == 0x08):
                 # Tiny
                 tiny = Tiny()
                 tiny.unpack(file)
                 self.tinys.append(tiny)
-            elif ((chunk_head&0xF0) == 0x10):
+            elif ((chunk_head&0x10) == 0x10):
                 # Material
                 material = Material()
                 material.unpack(file)
@@ -209,29 +223,35 @@ class Mesh:
             elif ((chunk_head&0x20) == 0x20):
                 # Vertex
                 vertex = Vertex()
-                vertex.unpack(file)
+                result = vertex.unpack(file)
+                if result:
+                    return True
                 self.vertexs.append(vertex)
             elif ((chunk_head&0x3B) == 0x38):
                 # Volume
                 volume = Volume()
                 volume.unpack()
                 self.volumes = []
-            elif ((chunk_head&0xF0) == 0x40):
+            elif ((chunk_head&0x40) == 0x40):
                 # Strip
-                strip = StripChunk()
-                strip.unkpack(file)
+                strip = Strip()
+                strip.unpack(file)
                 self.strips.append(strip)
+            else:
+                print('Detect Unknown Chunk Head')
+                print('--- Chunk Head: {0:#010X} Chunk Adr: {1:#010X} ---'.format(file.tell(), chunk_head))
+                return True
             i = i + 1
-        return False
 
 
 class Polygon:
     fmtHead = 'B'
     def __init__(self):
         self.meshs = []
-        self.vertexs = [] 
+        self.vertex = Mesh() 
    
     def unpack(self, file: typing.IO, max_chunk_count: int) -> bool:
+        print('--- Mesh Adr: {0:#X} ---'.format(file.tell()))
         mesh = Mesh()
         result = mesh.unpack(file, max_chunk_count)
         if result:
@@ -239,13 +259,14 @@ class Polygon:
             return True
         self.meshs.append(mesh)
         
-        vtx = Mesh()
-        result = vtx.unpack(file, max_chunk_count)
+        print('--- Vertex Adr: {0:#X} ---'.format(file.tell()))
+        #vtx = Mesh()
+        result = self.vertex.unpack(file, max_chunk_count)
         if result:
             print('Vertex Chunk Unpack Faild!!! File Position: {0:#X}'.format(file.tell()))
             return True
-        self.vertexs(vtx)
         return False
+
 
 class Model:
     def __init__(self):
@@ -262,6 +283,7 @@ class Model:
         for i in range(max_polygon_count):
             if ( file.tell() >= file_max ):
                 break
+            print('-- Polygon Adr: {0:#X} --'.format(file.tell()))
             polygon = Polygon()
             result = polygon.unpack(file, max_chunk_count)
             if result:
@@ -292,12 +314,12 @@ model = Model()
 model.unpack(file, offset, max_polygon_count, max_chunk_count)
 
 for i, polygon in enumerate(model.polygons):
-    break
+    #break
     mesh_name = 'polygon_{0:04}'.format(i)
     print("---- Generate {0} ---".format(mesh_name))
     bl_mesh = bpy.data.meshes.new(mesh_name)
     bl_obj = bpy.data.objects.new(mesh_name, bl_mesh)
-
+    
     scene = bpy.context.scene
     bpy.context.collection.objects.link(bl_obj)
     bpy.context.view_layer.objects.active = bl_obj
@@ -309,56 +331,13 @@ for i, polygon in enumerate(model.polygons):
     uvs = []
     #vertex
     vtxs = []
-    for vtx in polygon.vertexs:
+    #print('vertex count:{0}'.format(len(polygon.vertex.vertexs[0].elements)))
+    for vtx in polygon.vertex.vertexs[0].elements:
+        print(vtx.position)
         v = bm.verts.new(vtx.position)
-        vtxs.append(v)
+        #vtxs.append(v)
         #normals.append(vtx.normal)
         #uvs.append(vtx.uv)
-
-    idx_lists = []
-    for j, mesh in enumerate(polygon.meshs):
-        
-        idx = mesh.idx
-        print("vtx0:0x{0:02X}, vtx1:0x{1:02X}, vtx2:0x{2:02X}, vtx3:0x{3:02X}".format(\
-                idx[0], idx[1], idx[2], idx[3]))
-        
-        # already generated face
-        if (idx in idx_lists):
-            continue
-        
-        idx_lists.append(idx) # store current list of idx
-        _idx = list(dict.fromkeys(idx))
-        idx_count = len(_idx)
-        try:
-            # no face
-            if (idx_count < 3):
-                continue #skip
-
-            # triangle
-            elif(idx_count == 3):
-                v0 = vtxs[_idx[0]] if j % 2 == 0 else vtxs[_idx[0]]
-                v1 = vtxs[_idx[1]]
-                v2 = vtxs[_idx[2]] if j % 2 == 0 else vtxs[_idx[1]]
-                bm.faces.new((v0, v1, v2))
-                uv = [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0]]
-                uvs.append(uv)
-
-            # quad                
-            if(idx_count == 4):
-                v0 = vtxs[idx[1]] if j % 2 == 0 else vtxs[idx[1]]
-                v1 = vtxs[idx[2]] if j % 2 == 0 else vtxs[idx[2]]
-                v2 = vtxs[idx[3]] if j % 2 == 0 else vtxs[idx[3]]
-                bm.faces.new((v0, v1, v2))
-                v0 = vtxs[idx[1]] if j % 2 == 0 else vtxs[idx[1]]
-                v1 = vtxs[idx[3]] if j % 2 == 0 else vtxs[idx[3]]
-                v2 = vtxs[idx[0]] if j % 2 == 0 else vtxs[idx[0]]
-                bm.faces.new((v0, v1, v2))
-                uv = [[0.0, 1.0], [0.0, 0.0], [1.0, 0.0], [0.0, 1.0], [1.0, 0.0], [1.0, 1.0]]
-                uvs.append(uv)
-        except:
-            print("Vertex Exception vtx0:0x{0:02X}, vtx1:0x{1:02X}, vtx2:0x{2:02X}, vtx3:0x{3:02X}".format(\
-                    idx[0], idx[1], idx[2], idx[3]))
-            bm.to_mesh(bl_mesh)
 
     bm.to_mesh(bl_mesh)
     bm.free()
