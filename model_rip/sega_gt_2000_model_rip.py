@@ -87,14 +87,13 @@ class VertexElement:
         self.specular_color = [0.0, 0.0, 0.0, 0.0]
 
     def unpack(self, file: typing.IO, vtx_type: int) -> bool:
-        print('Vertex Type:{0:#0X} Vertex Adr: {1:#010X}'.format(vtx_type, file.tell()))
+        #print('Vertex Type:{0:#0X} Vertex Adr: {1:#010X}'.format(vtx_type, file.tell()))
         if (vtx_type > 18):
             return True
         _fmt = self.fmt[vtx_type]
         bytes = file.read(struct.calcsize(_fmt))
         buff = struct.unpack_from(_fmt, bytes, 0)
         self.position = [buff[0], buff[1], buff[2]]
-        print(self.position[0])
         return False
         
 # Chunk Vertex
@@ -203,9 +202,10 @@ class Mesh:
         while(True):
             if (i > max_chunk_count):
                 # Force Terminate parsing
+                print('Unpack is force terminated. Max:{0}'.format(max_chunk_count))
                 return True
             chunk_head = self.detect_head(file)
-            print('Chunk Head: {0:#010X} Chunk Adr: {1:#010X}'.format(file.tell(), chunk_head))
+            #print('Chunk Head: {0:#010X} Chunk Adr: {1:#010X}'.format(file.tell(), chunk_head))
             if ((chunk_head&0xFF) == 0xFF):
                 # End of Chunk (means parsing is correct)
                 file.seek(4, io.SEEK_CUR)
@@ -251,7 +251,7 @@ class Polygon:
         self.vertex = Mesh() 
    
     def unpack(self, file: typing.IO, max_chunk_count: int) -> bool:
-        print('--- Mesh Adr: {0:#X} ---'.format(file.tell()))
+        #print('--- Mesh Adr: {0:#X} ---'.format(file.tell()))
         mesh = Mesh()
         result = mesh.unpack(file, max_chunk_count)
         if result:
@@ -259,7 +259,7 @@ class Polygon:
             return True
         self.meshs.append(mesh)
         
-        print('--- Vertex Adr: {0:#X} ---'.format(file.tell()))
+        #print('--- Vertex Adr: {0:#X} ---'.format(file.tell()))
         #vtx = Mesh()
         result = self.vertex.unpack(file, max_chunk_count)
         if result:
@@ -283,13 +283,12 @@ class Model:
         for i in range(max_polygon_count):
             if ( file.tell() >= file_max ):
                 break
-            print('-- Polygon Adr: {0:#X} --'.format(file.tell()))
+            #print('-- Polygon Adr: {0:#X} --'.format(file.tell()))
             polygon = Polygon()
             result = polygon.unpack(file, max_chunk_count)
             if result:
                 break
             self.polygons.append(polygon)
-            print('File Position: {0:#X}'.format(file.tell()))
         
 
 
@@ -298,10 +297,10 @@ class Model:
 # COURSE
 offset = 0x1C20
 #for safe
-max_polygon_count = 1
-max_chunk_count = 10
+max_polygon_count = 2000
+max_chunk_count = 1000
 filename = r"format\track\night_section_a_001\00000000\00000000.bin" # Night Section A
-filename = r"format\track\SonyGT2\00000152\00000000.bin" # SonyGT2
+#filename = r"format\track\SonyGT2\00000152\00000000.bin" # SonyGT2
 
 
 # Path
@@ -316,7 +315,7 @@ model.unpack(file, offset, max_polygon_count, max_chunk_count)
 for i, polygon in enumerate(model.polygons):
     #break
     mesh_name = 'polygon_{0:04}'.format(i)
-    print("---- Generate {0} ---".format(mesh_name))
+    #print("---- Generate {0} ---".format(mesh_name))
     bl_mesh = bpy.data.meshes.new(mesh_name)
     bl_obj = bpy.data.objects.new(mesh_name, bl_mesh)
     
@@ -333,7 +332,6 @@ for i, polygon in enumerate(model.polygons):
     vtxs = []
     #print('vertex count:{0}'.format(len(polygon.vertex.vertexs[0].elements)))
     for vtx in polygon.vertex.vertexs[0].elements:
-        print(vtx.position)
         v = bm.verts.new(vtx.position)
         #vtxs.append(v)
         #normals.append(vtx.normal)
