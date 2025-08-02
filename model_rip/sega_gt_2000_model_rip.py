@@ -47,6 +47,8 @@ class Material:
             skip = 7
         elif ((buff[0]&0xF) == 3):
             skip = 11
+        elif ((buff[0]&0xF) == 7):
+            skip = 15
         else:
             return True
         file.seek(skip, io.SEEK_CUR)
@@ -141,7 +143,7 @@ class Volume:
         self.count_polygon = 0x00
         self.count_strip = 0x00
     
-    def unapck(self, file: typing.IO):
+    def unpack(self, file: typing.IO):
         bytes = file.read(struct.calcsize(self.fmt))
         buff = struct.unpack_from(self.fmt, bytes, 0)
         # TDOO Store
@@ -205,34 +207,34 @@ class Mesh:
                 print('Unpack is force terminated. Max:{0}'.format(max_chunk_count))
                 return True
             chunk_head = self.detect_head(file)
-            #print('Chunk Head: {0:#010X} Chunk Adr: {1:#010X}'.format(file.tell(), chunk_head))
+            #print('Chunk Head: {0:#010X} Chunk Adr: {1:#010X}'.format(chunk_head, file.tell()))
             if ((chunk_head&0xFF) == 0xFF):
                 # End of Chunk (means parsing is correct)
                 file.seek(4, io.SEEK_CUR)
                 return False
-            elif ((chunk_head&0x0F) == 0x08):
+            elif ( (chunk_head >= 0x8) and (chunk_head <= 0x9) ):
                 # Tiny
                 tiny = Tiny()
                 tiny.unpack(file)
                 self.tinys.append(tiny)
-            elif ((chunk_head&0x10) == 0x10):
+            elif ( (chunk_head >= 0x10) and (chunk_head <= 0x1F) ):
                 # Material
                 material = Material()
                 material.unpack(file)
                 self.materials.append(material)
-            elif ((chunk_head&0x20) == 0x20):
+            elif ( (chunk_head >= 0x20) and (chunk_head <= 0x32) ):
                 # Vertex
                 vertex = Vertex()
                 result = vertex.unpack(file)
                 if result:
                     return True
                 self.vertexs.append(vertex)
-            elif ((chunk_head&0x3B) == 0x38):
+            elif ( (chunk_head >= 0x38) and (chunk_head <= 0x3A) ):
                 # Volume
                 volume = Volume()
-                volume.unpack()
-                self.volumes = []
-            elif ((chunk_head&0x40) == 0x40):
+                volume.unpack(file)
+                self.volumes.append(volume)
+            elif ( (chunk_head >= 0x40) and (chunk_head <= 0x4B) ):
                 # Strip
                 strip = Strip()
                 strip.unpack(file)
@@ -282,6 +284,7 @@ class Model:
         #while (True):
         for i in range(max_polygon_count):
             if ( file.tell() >= file_max ):
+                print('Parsing Ninja Chunks Done!')
                 break
             #print('-- Polygon Adr: {0:#X} --'.format(file.tell()))
             polygon = Polygon()
@@ -292,16 +295,22 @@ class Model:
         
 
 
-
+# CAR
+#offset = 0x134
+#for safe
+#max_polygon_count = 60
+#max_chunk_count = 1000
+#filename = r"format\carmodel\00000000_toppo_bj\00000000_topo_bj.bin"
+#filename = r"format\carmodel\00000456_ralliart_gto\00000456_ralliart_gto.bin"
 
 # COURSE
 offset = 0x1C20
 #for safe
 max_polygon_count = 2000
 max_chunk_count = 1000
-filename = r"format\track\night_section_a_001\00000000\00000000.bin" # Night Section A
-#filename = r"format\track\SonyGT2\00000152\00000000.bin" # SonyGT2
-
+##filename = r"format\track\night_section_a_001\00000000\00000000.bin" # Night Section A
+filename = r"format\track\SonyGT2\00000152\00000000.bin" # SonyGT2
+##filename = r"extract_empire\STR1\00000156\00000000.bin"
 
 # Path
 path = "D:\Hack\SEGA\segaGT\\" + filename
